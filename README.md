@@ -71,6 +71,9 @@ need the usual installation steps.
 
 Dependencies:
   - https://github.com/elazarl/goproxy 
+  - the rdiff utility, bundled with [librsync](http://librsync.sourceforge.net/)
+    make sure the binary is at `/usr/bin/rdiff` since this path is
+    hardcoded (to be improved)
   
 
 To run the demo:
