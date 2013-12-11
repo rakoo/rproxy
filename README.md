@@ -64,6 +64,40 @@ In the previous diagram, you can see that the big data exchange was on
 fast links, while the slow link (across the internet) just exchanged
 little data: goal is achieved.
 
+## Usage
+
+This project is developed with [Go](http://golang.org/), so you will
+need the usual installation steps.
+
+Dependencies:
+  - https://github.com/elazarl/goproxy 
+  
+
+To run the demo:
+  - In 1 terminal, run the _dummy server_:
+  - In a second terminal, run the _server rproxy_ (in the _server_
+      folder)
+  - In a third terminal, run the _client rproxy_ (in the _client_
+      folder)
+
+Now use curl to send a GET to `localhost:2424` (the client rproxy).
+  Nothing will be visible the first time (except you retrieve the data),
+  but on subsequent calls, you will see that the server part sends less
+  data:
+
+```
+2013/12/11 20:59:34 C -> S: 32B
+2013/12/11 20:59:34 S -> C: 118716B
+2013/12/11 20:59:35 C -> S: 944B
+2013/12/11 20:59:35 S -> C: 2067B
+```
+
+`C -> S` is the length of the signature sent from the client proxy; `S
+-> C` is the size of the data sent to the client proxy. You can see that
+in the first iteration, an "empty" signature is sent, so the full
+content is retrieved, but on later call, a non-empty signature allows
+the server to send less data.
+
 ## When to use
 
 As you can see, this setup needs no modification in the browser nor in
