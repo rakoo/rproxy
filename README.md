@@ -24,7 +24,9 @@ one is close to the server. Now, instead of having the client talk to
 the server directly, communication goes from the client to the client
 rproxy to the server rproxy to the server, and vice versa.
 
+```
 browser -------- client rproxy -------- server rproxy -------- server
+```
 
 (I will now use the term _browser_ instead of simply client, so that one
  can rapidly grasp the situation)
@@ -102,7 +104,20 @@ the _delta_ produced by the algorithm is 2067B long.
 
 So, instead of downloading 116 kB of data just to get those new 3 bytes,
 you will send 944B upstream and receive 2067B of data. That is still
-an enormous amount of data, but far less than the original amount, and
+a big amount of data, but far less than the original amount, and
 you won't be able to do much better unless you start uploading more
 (which is a bad idea when you look at the current abysmal asymetry of
  the typical ADSL line)
+
+## LICENCE
+
+CC0
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain
+Dedication along with this software. If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
