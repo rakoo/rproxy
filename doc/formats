@@ -1,0 +1,25 @@
+# Signature
+
+signature := MAGIC VERSION BLOCKSIZE block*
+
+MAGIC := "rproxy"
+
+VERSION := NBO uint32
+
+BLOCKSIZE := NBO uint32
+
+block := weak strong
+
+weak := NBO uint32
+
+strong := byte[20]
+
+## Notes:
+
+VERSION is currently set to 1. This is important, because some elements
+are not specified:
+  - weak checksum is adler-32
+  - strong checksum is sha1, hence the 20-byte long strong sig
+
+BLOCKSIZE is chosen so that the signature doesn't exceed 1024B too much
+(we don't want to send too many because upstream bandwidth is expensive)
