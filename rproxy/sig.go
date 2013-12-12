@@ -14,11 +14,6 @@ import (
 
 const MAX_SIG_SIZE = 1024
 
-type WeakStrongHash struct {
-	Weak   uint32
-	Strong []byte
-}
-
 // Calculate the signature of given reader
 func Signature(rd io.Reader, inputSize uint64) (sig []byte) {
 	blocksize := getBlockSize(inputSize)
