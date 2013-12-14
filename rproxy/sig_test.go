@@ -11,6 +11,7 @@ func TestSignature(t *testing.T) {
 	if err != nil {
 		t.Fatal("Couldn't open \"Obama\" file for calculating sigs:", err)
 	}
+	defer in.Close()
 
 	stat, err := in.Stat()
 	if err != nil {
@@ -35,4 +36,20 @@ func TestSignature(t *testing.T) {
 	if bytes.Compare(blocksize, []byte{0, 0, 91, 199}) != 0 {
 		t.Fatal("Blocksize is incorrect: expected 23495, got", blocksize)
 	}
+
+	verif, err := os.Open("Obama.sig.1")
+	if err != nil {
+		t.Fatal("Couldn't open sig for verif:", err)
+	}
+	verifStat, err := verif.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	verifBuff := make([]byte, verifStat.Size())
+	verif.Read(verifBuff)
+	if bytes.Compare(verifBuff, sig) != 0 {
+		t.Fatal("Signature and verification signature differ")
+	}
+
 }

@@ -21,7 +21,6 @@ func Signature(rd io.Reader, inputSize uint64) (sig []byte) {
 	p := make([]byte, blocksize)
 	lastblock := false
 
-	// TODO: have some hint about rd size
 	hs := make([]*WeakStrongHash, 0)
 
 	for {
@@ -56,10 +55,10 @@ func Signature(rd io.Reader, inputSize uint64) (sig []byte) {
 		p = make([]byte, blocksize)
 	}
 
-	return serialize(hs, blocksize)
+	return serializeSig(hs, blocksize)
 }
 
-func serialize(in []*WeakStrongHash, blocksize uint32) []byte {
+func serializeSig(in []*WeakStrongHash, blocksize uint32) []byte {
 	var out bytes.Buffer
 	out.WriteString("rproxy")
 	binary.Write(&out, binary.BigEndian, uint32(1)) // version
@@ -81,4 +80,67 @@ func getBlockSize(inputsize uint64) uint32 {
 
 	maxBlocks := math.Ceil(float64(maxSize) / float64(adler32.Size+sha1.Size))
 	return uint32(math.Ceil(float64(inputsize) / maxBlocks))
+}
+
+func readSig(sig []byte) (blocksize int, hashes []*WeakStrongHash) {
+
+	rd := bytes.NewReader(sig)
+
+	magic := make([]byte, 6)
+	rd.Read(magic)
+	if string(magic) != "rproxy" {
+		log.Println("Wrong file format: magic is not \"rproxy\")")
+		return
+	}
+
+	var version uint32
+	if binary.Read(rd, binary.BigEndian, &version) != nil {
+		return
+	}
+
+	if version != 1 {
+		log.Println("Expected version 1, got", version)
+		return
+	}
+
+	var blocksize32 uint32
+	if binary.Read(rd, binary.BigEndian, &blocksize32) != nil {
+		return
+	}
+	blocksize = int(blocksize32)
+
+	hashes = make([]*WeakStrongHash, 0)
+	var dobreak bool
+
+	for {
+		p := make([]byte, adler32.Size+sha1.Size)
+
+		n, err := rd.Read(p)
+		if err != nil {
+			if err == io.EOF {
+				if n == 0 {
+					break
+				} else {
+					dobreak = true
+				}
+			} else {
+				log.Println("Error reading from sig:", err)
+				return
+			}
+		}
+
+		var weak uint32
+		binary.Read(bytes.NewReader(p), binary.BigEndian, &weak)
+
+		hash := &WeakStrongHash{
+			Weak:   weak,
+			Strong: p[adler32.Size:],
+		}
+		hashes = append(hashes, hash)
+
+		if dobreak {
+			break
+		}
+	}
+	return
 }
