@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"encoding/binary"
-	"hash/adler32"
+	"errors"
 	"io"
 	"log"
 	"math"
@@ -13,6 +13,13 @@ import (
 // Simple, stupid differ: adler-32 as weak, sha1 as strong
 
 const MAX_SIG_SIZE = 1024
+
+var (
+	WrongMagic        = errors.New("Wrong magic")
+	CantReadVersion   = errors.New("Can't read version")
+	WrongVersion      = errors.New("WrongVersion")
+	CantReadBlocksize = errors.New("Can't read blocksize")
+)
 
 // Calculate the signature of given reader
 func Signature(rd io.Reader, inputSize uint64) (sig []byte) {
@@ -38,12 +45,10 @@ func Signature(rd io.Reader, inputSize uint64) (sig []byte) {
 			}
 		}
 
-		if lastblock {
-			p = p[:n]
-		}
+		p = p[:n]
 
 		h := &WeakStrongHash{
-			Weak:   adler32.Checksum(p),
+			Weak:   Checksum(p),
 			Strong: sha1sum(p),
 		}
 		hs = append(hs, h)
@@ -61,7 +66,7 @@ func Signature(rd io.Reader, inputSize uint64) (sig []byte) {
 func serializeSig(in []*WeakStrongHash, blocksize uint32) []byte {
 	var out bytes.Buffer
 	out.WriteString("rproxy")
-	binary.Write(&out, binary.BigEndian, uint32(1)) // version
+	binary.Write(&out, binary.BigEndian, uint32(2)) // version
 	binary.Write(&out, binary.BigEndian, blocksize)
 
 	for _, hash := range in {
@@ -78,11 +83,11 @@ func getBlockSize(inputsize uint64) uint32 {
 	// Substract version and block size in available size
 	maxSize := MAX_SIG_SIZE - 4 - 4
 
-	maxBlocks := math.Ceil(float64(maxSize) / float64(adler32.Size+sha1.Size))
+	maxBlocks := math.Ceil(float64(maxSize) / float64(ROLLSUM_SIZE+sha1.Size))
 	return uint32(math.Ceil(float64(inputsize) / maxBlocks))
 }
 
-func readSig(sig []byte) (blocksize int, hashes []*WeakStrongHash) {
+func readSig(sig []byte) (blocksize int, hashes []*WeakStrongHash, err error) {
 
 	rd := bytes.NewReader(sig)
 
@@ -90,57 +95,47 @@ func readSig(sig []byte) (blocksize int, hashes []*WeakStrongHash) {
 	rd.Read(magic)
 	if string(magic) != "rproxy" {
 		log.Println("Wrong file format: magic is not \"rproxy\")")
+		err = WrongMagic
 		return
 	}
 
 	var version uint32
 	if binary.Read(rd, binary.BigEndian, &version) != nil {
+		err = CantReadVersion
 		return
 	}
 
-	if version != 1 {
-		log.Println("Expected version 1, got", version)
+	if version != 2 {
+		log.Println("Expected version 2, got", version)
+		err = WrongVersion
 		return
 	}
 
 	var blocksize32 uint32
 	if binary.Read(rd, binary.BigEndian, &blocksize32) != nil {
+		err = CantReadBlocksize
 		return
 	}
 	blocksize = int(blocksize32)
 
 	hashes = make([]*WeakStrongHash, 0)
-	var dobreak bool
 
 	for {
-		p := make([]byte, adler32.Size+sha1.Size)
-
-		n, err := rd.Read(p)
-		if err != nil {
-			if err == io.EOF {
-				if n == 0 {
-					break
-				} else {
-					dobreak = true
-				}
-			} else {
-				log.Println("Error reading from sig:", err)
-				return
-			}
+		var weak uint32
+		err = binary.Read(rd, binary.BigEndian, &weak)
+		if err == io.EOF {
+			err = nil
+			break
 		}
 
-		var weak uint32
-		binary.Read(bytes.NewReader(p), binary.BigEndian, &weak)
+		strong := make([]byte, sha1.Size)
+		rd.Read(strong)
 
 		hash := &WeakStrongHash{
 			Weak:   weak,
-			Strong: p[adler32.Size:],
+			Strong: strong,
 		}
 		hashes = append(hashes, hash)
-
-		if dobreak {
-			break
-		}
 	}
 	return
 }
